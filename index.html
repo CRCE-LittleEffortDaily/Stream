@@ -158,6 +158,19 @@ function parseTimeString(str) {
 const timeParam = urlParams.get("t");
 const autoStartSeconds = parseTimeString(timeParam);
 
+// 如果 URL 指定了倒數時間 → 自動啟動
+if (autoStartSeconds) {
+    remaining = autoStartSeconds;
+    updateDisplay();
+    startTimer();
+}
+
+// 若 URL 要求暫停，則立即暫停
+if (shouldPause) {
+    clearInterval(timer);
+    timer = null;
+}
+
 ///// ========== 以下是原本的 timer 程式碼 ========== /////
 let timer = null;
 let remaining = 0;
