@@ -134,6 +134,30 @@ const defaultColor = "#000000"; // 預設黑色
 const colorParam = urlParams.get("color");
 const timerColor = colorParam ? colorParam : defaultColor;
 
+// ---- 倒數時間控制：?t=25m、?t=1h30m、?t=2d3h ----
+function parseTimeString(str) {
+    if (!str) return null;
+
+    let total = 0;
+    let regex = /(\d+)(d|h|m|s)/g;
+    let match;
+
+    while ((match = regex.exec(str)) !== null) {
+        let value = parseInt(match[1]);
+        let unit = match[2];
+
+        if (unit === "d") total += value * 86400;
+        if (unit === "h") total += value * 3600;
+        if (unit === "m") total += value * 60;
+        if (unit === "s") total += value;
+    }
+
+    return total > 0 ? total : null;
+}
+
+const timeParam = urlParams.get("t");
+const autoStartSeconds = parseTimeString(timeParam);
+
 ///// ========== 以下是原本的 timer 程式碼 ========== /////
 let timer = null;
 let remaining = 0;
@@ -214,6 +238,14 @@ document.getElementById("reset-btn").onclick = () => {
 });
 
 updateDisplay();
+
+// 如果 URL 指定了倒數時間 → 自動啟動
+if (autoStartSeconds) {
+    remaining = autoStartSeconds;
+    updateDisplay();
+    startTimer();
+}
+
 </script>
 
 </body>
