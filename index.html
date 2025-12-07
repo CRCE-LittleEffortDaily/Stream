@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<title>Stream Timer Pro</title>
+<title>Stream Timer (URL Control)</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
 
@@ -16,38 +16,25 @@
         user-select: none;
     }
 
-    .timer-container {
-        text-align: center;
-        padding: 10px;
-    }
-
     #time-display {
         font-size: 48px;
         font-weight: 600;
         letter-spacing: 2px;
+        text-align: center;
+        padding: 10px;
     }
 </style>
 </head>
 
 <body>
-<div class="timer-container">
-    <div id="time-display">--</div>
-</div>
+<div id="time-display">--</div>
 
 <script>
 // =========================
-// Stream Timer Pro (Final)
+// URL 參數
 // =========================
-
-// ---------- LocalStorage Keys ----------
-const LS_REMAIN = "timer_remaining";
-const LS_PAUSED = "timer_paused";
-const LS_TIMESTAMP = "timer_timestamp";
-
-// ---------- URL Params ----------
 const url = new URLSearchParams(window.location.search);
 
-// 字體顏色控制
 const timerColor = url.get("color") ? url.get("color") : "#000000";
 
 // 顯示單位控制
@@ -56,15 +43,10 @@ const showHours = url.get("hours") !== "0";
 const showMins  = url.get("mins")  !== "0";
 const showSecs  = url.get("secs")  !== "0";
 
-// ---------- 剩餘時間 ----------
-let remaining = 0;
-let paused = true;
-let timer = null;
+// pause 控制
+const pauseParam = url.get("pause"); // "1" or "0"
 
-
-// =========================
-// 工具函式：解析 t=25m 等
-// =========================
+// t 控制
 function parseTimeString(str) {
     if (!str) return null;
     let total = 0;
@@ -80,6 +62,10 @@ function parseTimeString(str) {
     }
     return total > 0 ? total : null;
 }
+
+let remaining = parseTimeString(url.get("t")) || 0;
+let paused = pauseParam === "1";
+let timer = null;
 
 
 // =========================
@@ -110,7 +96,7 @@ function updateDisplay() {
 
 
 // =========================
-// 計時器啟動
+// 計時器
 // =========================
 function startTimer() {
     if (timer) clearInterval(timer);
@@ -119,8 +105,6 @@ function startTimer() {
     timer = setInterval(() => {
         if (!paused && remaining > 0) {
             remaining--;
-            localStorage.setItem(LS_REMAIN, remaining);
-            localStorage.setItem(LS_TIMESTAMP, Date.now());
             updateDisplay();
         }
         if (remaining <= 0) {
@@ -130,98 +114,21 @@ function startTimer() {
     }, 1000);
 }
 
-
-// =========================
-// 真正暫停
-// =========================
 function pauseTimer() {
     paused = true;
     clearInterval(timer);
     timer = null;
-    localStorage.setItem(LS_PAUSED, "1");
-    updateDisplay();
 }
 
 
 // =========================
-// Reset 模式
+// 初始化流程
 // =========================
-function fullReset() {
-    localStorage.removeItem(LS_REMAIN);
-    localStorage.removeItem(LS_PAUSED);
-    localStorage.removeItem(LS_TIMESTAMP);
-    remaining = 0;
-    paused = true;
-    updateDisplay();
-}
+updateDisplay();
 
+if (remaining > 0 && !paused) startTimer();
+if (paused) pauseTimer();
 
-// =========================
-// 初始化邏輯
-// =========================
-(function init() {
-
-    // 1. 若 URL 有 reset=1 → 全部重置
-    if (url.get("reset") === "1") {
-        fullReset();
-        return;
-    }
-
-    // 2. 若 URL 有 t → 視為新的倒數開始
-    const tParam = url.get("t");
-    if (tParam) {
-        const newSec = parseTimeString(tParam);
-        fullReset();
-        if (newSec) {
-            remaining = newSec;
-            localStorage.setItem(LS_REMAIN, remaining);
-            paused = url.get("pause") === "1";
-            localStorage.setItem(LS_PAUSED, paused ? "1" : "0");
-            localStorage.setItem(LS_TIMESTAMP, Date.now());
-
-            updateDisplay();
-            if (!paused) startTimer();
-        }
-        return;
-    }
-
-    // 3. 若 URL 沒提供 t → 從 LocalStorage 還原
-    const savedRemain = parseInt(localStorage.getItem(LS_REMAIN));
-    const savedPaused = localStorage.getItem(LS_PAUSED) === "1";
-    const savedTS     = parseInt(localStorage.getItem(LS_TIMESTAMP));
-
-    if (!isNaN(savedRemain)) {
-        remaining = savedRemain;
-        paused = savedPaused;
-
-        // 若沒暫停 → 扣掉 reload 期間流逝的秒
-        if (!paused && savedTS) {
-            const diff = Math.floor((Date.now() - savedTS) / 1000);
-            remaining = Math.max(0, remaining - diff);
-            localStorage.setItem(LS_REMAIN, remaining);
-            localStorage.setItem(LS_TIMESTAMP, Date.now());
-        }
-    }
-
-    // 4. URL 若強制 pause
-    if (url.get("pause") === "1") {
-        pauseTimer();
-        return;
-    }
-    if (url.get("pause") === "0") {
-        paused = false;
-        localStorage.setItem(LS_PAUSED, "0");
-        localStorage.setItem(LS_TIMESTAMP, Date.now());
-        updateDisplay();
-        startTimer();
-        return;
-    }
-
-    // 5. 若無 pause 指令 → 正常還原狀態
-    updateDisplay();
-    if (!paused && remaining > 0) startTimer();
-})();
 </script>
-
 </body>
 </html>
