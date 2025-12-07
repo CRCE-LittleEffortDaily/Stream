@@ -158,6 +158,10 @@ function parseTimeString(str) {
 const timeParam = urlParams.get("t");
 const autoStartSeconds = parseTimeString(timeParam);
 
+// ---- 暫停控制：?pause=1 暫停，?pause=0 繼續 ----
+const pauseParam = urlParams.get("pause");
+const shouldPause = pauseParam === "1";
+
 // 如果 URL 指定了倒數時間 → 自動啟動
 if (autoStartSeconds) {
     remaining = autoStartSeconds;
