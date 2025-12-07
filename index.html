@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<title>Minimal Notion Timer</title>
+<title>Stream Timer Pro</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
 
@@ -26,140 +26,65 @@
         font-weight: 600;
         letter-spacing: 2px;
     }
-
-    .controls {
-        margin-top: 10px;
-    }
-
-    button, input {
-        font-family: inherit;
-        font-size: 16px;
-        padding: 6px 10px;
-        margin: 4px;
-        border: 1px solid #999;
-        border-radius: 4px;
-        background: #fff;
-        color: #000;
-    }
-
-    button:hover {
-        background: #000;
-        color: #fff;
-        cursor: pointer;
-    }
-
-    input {
-        width: 90px;
-    }
-
-    .toggles {
-        margin-top: 10px;
-        font-size: 14px;
-    }
-
-    /* --- Notion Style Checkbox --- */
-    .toggles label {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        margin-right: 10px;
-        line-height: 1;
-    }
-
-    .toggles input[type="checkbox"] {
-        appearance: none;
-        -webkit-appearance: none;
-        width: 16px;
-        height: 16px;
-        border: 2px solid #000;
-        border-radius: 3px;
-        cursor: pointer;
-        position: relative;
-    }
-
-    .toggles input[type="checkbox"]:checked::after {
-        content: "✓";
-        position: absolute;
-        top: 48%;
-        left: 50%;
-        transform: translate(-50%, -52%);
-        font-size: 14px;
-        color: #000;
-        font-weight: 600;
-    }
-
 </style>
 </head>
 
 <body>
 <div class="timer-container">
-
-    <div id="time-display">00:00</div>
-
-    <div class="controls">
-        <input type="number" id="input-min" placeholder="Minutes" min="0" />
-        <button id="start-btn">Start</button>
-        <button id="pause-btn">Pause</button>
-        <button id="reset-btn">Reset</button>
-    </div>
-
-    <div class="toggles">
-        <label><input type="checkbox" id="show-days" checked> 天</label>
-        <label><input type="checkbox" id="show-hours" checked> 小時</label>
-        <label><input type="checkbox" id="show-mins" checked> 分鐘</label>
-        <label><input type="checkbox" id="show-secs" checked> 秒</label>
-    </div>
-
+    <div id="time-display">--</div>
 </div>
 
 <script>
-// ================== 全域變數 ==================
-let timer = null;
+// =========================
+// Stream Timer Pro (Final)
+// =========================
+
+// ---------- LocalStorage Keys ----------
+const LS_REMAIN = "timer_remaining";
+const LS_PAUSED = "timer_paused";
+const LS_TIMESTAMP = "timer_timestamp";
+
+// ---------- URL Params ----------
+const url = new URLSearchParams(window.location.search);
+
+// 字體顏色控制
+const timerColor = url.get("color") ? url.get("color") : "#000000";
+
+// 顯示單位控制
+const showDays  = url.get("days")  !== "0";
+const showHours = url.get("hours") !== "0";
+const showMins  = url.get("mins")  !== "0";
+const showSecs  = url.get("secs")  !== "0";
+
+// ---------- 剩餘時間 ----------
 let remaining = 0;
+let paused = true;
+let timer = null;
 
-// ================== URL 參數處理 ==================
-// URL操控：1 就是開 0 就是關
-// 範例：https://crce-littleeffortdaily.github.io/Stream?days=0&hours=1&mins=1&secs=0&color=white
-const urlParams = new URLSearchParams(window.location.search);
 
-function getBool(name, defaultValue) {
-    if (!urlParams.has(name)) return defaultValue;
-    return urlParams.get(name) === "1";
-}
-
-// 顏色控制 ?color=white 或 ?color=%2300ff99
-const defaultColor = "#000000";
-const colorParam = urlParams.get("color");
-const timerColor = colorParam ? colorParam : defaultColor;
-
-// 解析 ?t=25m、?t=1h30m、?t=2d3h4m5s
+// =========================
+// 工具函式：解析 t=25m 等
+// =========================
 function parseTimeString(str) {
     if (!str) return null;
-
     let total = 0;
     let regex = /(\d+)(d|h|m|s)/g;
     let match;
-
     while ((match = regex.exec(str)) !== null) {
-        let value = parseInt(match[1]);
-        let unit = match[2];
-
-        if (unit === "d") total += value * 86400;
-        if (unit === "h") total += value * 3600;
-        if (unit === "m") total += value * 60;
-        if (unit === "s") total += value;
+        let v = parseInt(match[1]);
+        let u = match[2];
+        if (u === "d") total += v * 86400;
+        if (u === "h") total += v * 3600;
+        if (u === "m") total += v * 60;
+        if (u === "s") total += v;
     }
     return total > 0 ? total : null;
 }
 
-const timeParam = urlParams.get("t");          // 例如 t=25m
-const autoStartSeconds = parseTimeString(timeParam);
 
-// 暫停控制：?pause=1 暫停，?pause=0 繼續
-const pauseParam = urlParams.get("pause");
-const shouldPause = pauseParam === "1";
-
-// ================== 顯示邏輯 ==================
+// =========================
+// 顯示更新
+// =========================
 function updateDisplay() {
     let total = remaining;
 
@@ -172,94 +97,130 @@ function updateDisplay() {
     let mins = Math.floor(total / 60);
     let secs = total % 60;
 
-    const showDays  = document.getElementById("show-days").checked;
-    const showHours = document.getElementById("show-hours").checked;
-    const showMins  = document.getElementById("show-mins").checked;
-    const showSecs  = document.getElementById("show-secs").checked;
-
     const parts = [];
-
-    if (showDays)  parts.push(days.toString().padStart(2, '0') + "d");
-    if (showHours) parts.push(hours.toString().padStart(2, '0') + "h");
-    if (showMins)  parts.push(mins.toString().padStart(2, '0') + "m");
-    if (showSecs)  parts.push(secs.toString().padStart(2, '0') + "s");
+    if (showDays)  parts.push(days.toString().padStart(2, "0") + "d");
+    if (showHours) parts.push(hours.toString().padStart(2, "0") + "h");
+    if (showMins)  parts.push(mins.toString().padStart(2, "0") + "m");
+    if (showSecs)  parts.push(secs.toString().padStart(2, "0") + "s");
 
     const display = document.getElementById("time-display");
-    display.style.color = timerColor;  // ← 這裡套用 URL 傳進來的顏色
-
+    display.style.color = timerColor;
     display.innerText = parts.length ? parts.join(" : ") : "--";
 }
 
+
+// =========================
+// 計時器啟動
+// =========================
 function startTimer() {
     if (timer) clearInterval(timer);
+    paused = false;
 
     timer = setInterval(() => {
-        if (remaining > 0) {
+        if (!paused && remaining > 0) {
             remaining--;
+            localStorage.setItem(LS_REMAIN, remaining);
+            localStorage.setItem(LS_TIMESTAMP, Date.now());
             updateDisplay();
-        } else {
+        }
+        if (remaining <= 0) {
             clearInterval(timer);
             timer = null;
         }
     }, 1000);
 }
 
-// ================== 初始化 UI & 綁定事件 ==================
 
-// 依照 URL 覆蓋 checkbox 初始值
-document.getElementById("show-days").checked  = getBool("days",  true);
-document.getElementById("show-hours").checked = getBool("hours", true);
-document.getElementById("show-mins").checked  = getBool("mins",  true);
-document.getElementById("show-secs").checked  = getBool("secs",  true);
-
-// 勾選切換時更新顯示
-["show-days", "show-hours", "show-mins", "show-secs"].forEach(id => {
-    document.getElementById(id).addEventListener("change", updateDisplay);
-});
-
-// 按鈕事件
-document.getElementById("start-btn").onclick = () => {
-    let min = parseInt(document.getElementById("input-min").value, 10);
-
-    if (!isNaN(min) && min >= 0) {
-        remaining = min * 60;
-        updateDisplay();
-    }
-    startTimer();
-};
-
-document.getElementById("pause-btn").onclick = () => {
+// =========================
+// 真正暫停
+// =========================
+function pauseTimer() {
+    paused = true;
     clearInterval(timer);
     timer = null;
-};
-
-document.getElementById("reset-btn").onclick = () => {
-    clearInterval(timer);
-    timer = null;
-    remaining = 0;
+    localStorage.setItem(LS_PAUSED, "1");
     updateDisplay();
-};
-
-// ================== 啟動流程 ==================
-
-// 若 URL 指定倒數時間 → 設定起始秒數
-if (autoStartSeconds) {
-    remaining = autoStartSeconds;
 }
 
-// 先畫一次畫面（會套用顏色＋勾選狀態）
-updateDisplay();
 
-// 如果有時間而且沒有要求 pause，就自動開始
-if (autoStartSeconds && !shouldPause) {
-    startTimer();
+// =========================
+// Reset 模式
+// =========================
+function fullReset() {
+    localStorage.removeItem(LS_REMAIN);
+    localStorage.removeItem(LS_PAUSED);
+    localStorage.removeItem(LS_TIMESTAMP);
+    remaining = 0;
+    paused = true;
+    updateDisplay();
 }
 
-// 如果要求 pause，確保 timer 停止（即使有自動開始）
-if (shouldPause) {
-    clearInterval(timer);
-    timer = null;
-}
+
+// =========================
+// 初始化邏輯
+// =========================
+(function init() {
+
+    // 1. 若 URL 有 reset=1 → 全部重置
+    if (url.get("reset") === "1") {
+        fullReset();
+        return;
+    }
+
+    // 2. 若 URL 有 t → 視為新的倒數開始
+    const tParam = url.get("t");
+    if (tParam) {
+        const newSec = parseTimeString(tParam);
+        fullReset();
+        if (newSec) {
+            remaining = newSec;
+            localStorage.setItem(LS_REMAIN, remaining);
+            paused = url.get("pause") === "1";
+            localStorage.setItem(LS_PAUSED, paused ? "1" : "0");
+            localStorage.setItem(LS_TIMESTAMP, Date.now());
+
+            updateDisplay();
+            if (!paused) startTimer();
+        }
+        return;
+    }
+
+    // 3. 若 URL 沒提供 t → 從 LocalStorage 還原
+    const savedRemain = parseInt(localStorage.getItem(LS_REMAIN));
+    const savedPaused = localStorage.getItem(LS_PAUSED) === "1";
+    const savedTS     = parseInt(localStorage.getItem(LS_TIMESTAMP));
+
+    if (!isNaN(savedRemain)) {
+        remaining = savedRemain;
+        paused = savedPaused;
+
+        // 若沒暫停 → 扣掉 reload 期間流逝的秒
+        if (!paused && savedTS) {
+            const diff = Math.floor((Date.now() - savedTS) / 1000);
+            remaining = Math.max(0, remaining - diff);
+            localStorage.setItem(LS_REMAIN, remaining);
+            localStorage.setItem(LS_TIMESTAMP, Date.now());
+        }
+    }
+
+    // 4. URL 若強制 pause
+    if (url.get("pause") === "1") {
+        pauseTimer();
+        return;
+    }
+    if (url.get("pause") === "0") {
+        paused = false;
+        localStorage.setItem(LS_PAUSED, "0");
+        localStorage.setItem(LS_TIMESTAMP, Date.now());
+        updateDisplay();
+        startTimer();
+        return;
+    }
+
+    // 5. 若無 pause 指令 → 正常還原狀態
+    updateDisplay();
+    if (!paused && remaining > 0) startTimer();
+})();
 </script>
 
 </body>
