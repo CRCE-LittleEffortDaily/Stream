@@ -113,6 +113,23 @@
 </div>
 
 <script>
+///// ========== URL 參數控制開關 ========== /////
+const urlParams = new URLSearchParams(window.location.search);
+
+function getBool(name, defaultValue) {
+    if (!urlParams.has(name)) return defaultValue;
+    return urlParams.get(name) === "1";
+}
+
+// 依照 URL 覆蓋 checkbox 初始值
+document.getElementById("show-days").checked  = getBool("days",  true);
+document.getElementById("show-hours").checked = getBool("hours", true);
+document.getElementById("show-mins").checked  = getBool("mins",  true);
+document.getElementById("show-secs").checked  = getBool("secs",  true);
+
+
+
+///// ========== 以下是原本的 timer 程式碼 ========== /////
 let timer = null;
 let remaining = 0;
 
@@ -128,12 +145,12 @@ function updateDisplay() {
     let mins = Math.floor(total / 60);
     let secs = total % 60;
 
-    const parts = [];
-
     const showDays  = document.getElementById("show-days").checked;
     const showHours = document.getElementById("show-hours").checked;
     const showMins  = document.getElementById("show-mins").checked;
     const showSecs  = document.getElementById("show-secs").checked;
+
+    const parts = [];
 
     if (showDays)  parts.push(days.toString().padStart(2, '0') + "d");
     if (showHours) parts.push(hours.toString().padStart(2, '0') + "h");
