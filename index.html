@@ -1,181 +1,6 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-<meta charset="UTF-8">
-<title>Minimal Notion Timer</title>
-
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
-
-<style>
-    body {
-        margin: 0;
-        padding: 0;
-        background: transparent;
-        font-family: 'Inter', sans-serif;
-        color: #000;
-        user-select: none;
-    }
-
-    .timer-container {
-        text-align: center;
-        padding: 10px;
-    }
-
-    #time-display {
-        font-size: 48px;
-        font-weight: 600;
-        letter-spacing: 2px;
-    }
-
-    .controls {
-        margin-top: 10px;
-    }
-
-    button, input {
-        font-family: inherit;
-        font-size: 16px;
-        padding: 6px 10px;
-        margin: 4px;
-        border: 1px solid #999;
-        border-radius: 4px;
-        background: #fff;
-        color: #000;
-    }
-
-    button:hover {
-        background: #000;
-        color: #fff;
-        cursor: pointer;
-    }
-
-    input {
-        width: 90px;
-    }
-
-    .toggles {
-        margin-top: 10px;
-        font-size: 14px;
-    }
-
-    /* --- Notion Style Checkbox --- */
-    .toggles label {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        margin-right: 10px;
-        line-height: 1;
-    }
-
-    .toggles input[type="checkbox"] {
-        appearance: none;
-        -webkit-appearance: none;
-        width: 16px;
-        height: 16px;
-        border: 2px solid #000;
-        border-radius: 3px;
-        cursor: pointer;
-        position: relative;
-    }
-
-    .toggles input[type="checkbox"]:checked::after {
-        content: "✓";
-        position: absolute;
-        top: 48%;
-        left: 50%;
-        transform: translate(-50%, -52%);
-        font-size: 14px;
-        color: #000;
-        font-weight: 600;
-    }
-
-</style>
-</head>
-
-<body>
-<div class="timer-container">
-
-    <div id="time-display">00:00</div>
-
-    <div class="controls">
-        <input type="number" id="input-min" placeholder="Minutes" min="0" />
-        <button id="start-btn">Start</button>
-        <button id="pause-btn">Pause</button>
-        <button id="reset-btn">Reset</button>
-    </div>
-
-    <div class="toggles">
-        <label><input type="checkbox" id="show-days" checked> 天</label>
-        <label><input type="checkbox" id="show-hours" checked> 小時</label>
-        <label><input type="checkbox" id="show-mins" checked> 分鐘</label>
-        <label><input type="checkbox" id="show-secs" checked> 秒</label>
-    </div>
-
-</div>
-
 <script>
-///// ========== URL 參數控制開關 ========== /////
-///URL操控 1就是打開 0就是關閉 ?days=0&hours=1&mins=1&secs=0&color=white ///
-///完整URL範例 https://crce-littleeffortdaily.github.io/Stream?days=0&hours=1&mins=1&secs=0&color=white ///
-const urlParams = new URLSearchParams(window.location.search);
 
-function getBool(name, defaultValue) {
-    if (!urlParams.has(name)) return defaultValue;
-    return urlParams.get(name) === "1";
-}
-
-// 依照 URL 覆蓋 checkbox 初始值
-document.getElementById("show-days").checked  = getBool("days",  true);
-document.getElementById("show-hours").checked = getBool("hours", true);
-document.getElementById("show-mins").checked  = getBool("mins",  true);
-document.getElementById("show-secs").checked  = getBool("secs",  true);
-
-// ---- 字體顏色（可用 URL 控制） ----
-const defaultColor = "#000000"; // 預設黑色
-const colorParam = urlParams.get("color");
-const timerColor = colorParam ? colorParam : defaultColor;
-
-// ---- 倒數時間控制：?t=25m、?t=1h30m、?t=2d3h ----
-function parseTimeString(str) {
-    if (!str) return null;
-
-    let total = 0;
-    let regex = /(\d+)(d|h|m|s)/g;
-    let match;
-
-    while ((match = regex.exec(str)) !== null) {
-        let value = parseInt(match[1]);
-        let unit = match[2];
-
-        if (unit === "d") total += value * 86400;
-        if (unit === "h") total += value * 3600;
-        if (unit === "m") total += value * 60;
-        if (unit === "s") total += value;
-    }
-
-    return total > 0 ? total : null;
-}
-
-const timeParam = urlParams.get("t");
-const autoStartSeconds = parseTimeString(timeParam);
-
-// ---- 暫停控制：?pause=1 暫停，?pause=0 繼續 ----
-const pauseParam = urlParams.get("pause");
-const shouldPause = pauseParam === "1";
-
-// 如果 URL 指定了倒數時間 → 自動啟動
-if (autoStartSeconds) {
-    remaining = autoStartSeconds;
-    updateDisplay();
-    startTimer();
-}
-
-// 若 URL 要求暫停，則立即暫停
-if (shouldPause) {
-    clearInterval(timer);
-    timer = null;
-}
-
-///// ========== 以下是原本的 timer 程式碼 ========== /////
+///// ========== 原本 Timer 的變數與函式（先宣告） ========== /////
 let timer = null;
 let remaining = 0;
 
@@ -203,14 +28,9 @@ function updateDisplay() {
     if (showMins)  parts.push(mins.toString().padStart(2, '0') + "m");
     if (showSecs)  parts.push(secs.toString().padStart(2, '0') + "s");
 
-    if (parts.length === 0) {
-        document.getElementById("time-display").innerText = "--";
-        return;
-    }
-
     const display = document.getElementById("time-display");
-    display.style.color = timerColor;
-    display.innerText = parts.join(" : ");
+    display.style.color = timerColor;   // ← 顏色這裡才生效
+    display.innerText = parts.length ? parts.join(" : ") : "--";
 }
 
 function startTimer() {
@@ -227,14 +47,73 @@ function startTimer() {
     }, 1000);
 }
 
+///// ========== URL 參數控制區 ========== /////
+const urlParams = new URLSearchParams(window.location.search);
+
+function getBool(name, defaultValue) {
+    if (!urlParams.has(name)) return defaultValue;
+    return urlParams.get(name) === "1";
+}
+
+// 顯示元件控制
+document.getElementById("show-days").checked  = getBool("days",  true);
+document.getElementById("show-hours").checked = getBool("hours", true);
+document.getElementById("show-mins").checked  = getBool("mins",  true);
+document.getElementById("show-secs").checked  = getBool("secs",  true);
+
+// 顏色控制
+const defaultColor = "#000000";
+const colorParam = urlParams.get("color");
+const timerColor = colorParam ? colorParam : defaultColor;
+
+// ---- 時間參數 t=25m 解析 ----
+function parseTimeString(str) {
+    if (!str) return null;
+    let total = 0;
+    let regex = /(\d+)(d|h|m|s)/g;
+    let match;
+
+    while ((match = regex.exec(str)) !== null) {
+        let value = parseInt(match[1]);
+        let unit = match[2];
+
+        if (unit === "d") total += value * 86400;
+        if (unit === "h") total += value * 3600;
+        if (unit === "m") total += value * 60;
+        if (unit === "s") total += value;
+    }
+    return total > 0 ? total : null;
+}
+
+const timeParam = urlParams.get("t");
+const autoStartSeconds = parseTimeString(timeParam);
+
+// ---- 暫停控制 ----
+const pauseParam = urlParams.get("pause");
+const shouldPause = pauseParam === "1";
+
+///// ========== 啟動流程 ========== /////
+
+// 若 URL 指定倒數時間 → 自動啟動
+if (autoStartSeconds) {
+    remaining = autoStartSeconds;
+    updateDisplay();
+    startTimer();
+}
+
+// 若 URL 要求暫停
+if (shouldPause) {
+    clearInterval(timer);
+    timer = null;
+}
+
+///// ========== 原本按鈕功能 ========== /////
 document.getElementById("start-btn").onclick = () => {
     let min = parseInt(document.getElementById("input-min").value, 10);
-
     if (!isNaN(min) && min >= 0) {
         remaining = min * 60;
         updateDisplay();
     }
-
     startTimer();
 };
 
@@ -250,20 +129,9 @@ document.getElementById("reset-btn").onclick = () => {
     updateDisplay();
 };
 
-["show-days", "show-hours", "show-mins", "show-secs"].forEach(id => {
-    document.getElementById(id).addEventListener("change", updateDisplay);
-});
+["show-days", "show-hours", "show-mins", "show-secs"]
+    .forEach(id => document.getElementById(id).addEventListener("change", updateDisplay));
 
 updateDisplay();
 
-// 如果 URL 指定了倒數時間 → 自動啟動
-if (autoStartSeconds) {
-    remaining = autoStartSeconds;
-    updateDisplay();
-    startTimer();
-}
-
 </script>
-
-</body>
-</html>
